@@ -213,6 +213,8 @@ func main() {
 func buildMux() http.Handler {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/healthz", handleHealthz)
+
 	// WebSocket upgrade (all paths not otherwise matched)
 	mux.HandleFunc("/", handleUpgrade)
 
@@ -307,6 +309,27 @@ func isAddrInUseError(err error) bool {
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "address already in use") ||
 		strings.Contains(message, "only one usage of each socket address")
+}
+
+func handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":      true,
+		"service": "ws-server-go",
+		"port":    port,
+		"time":    time.Now().UTC().Format(time.RFC3339),
+	})
 }
 
 func handleUpgrade(w http.ResponseWriter, r *http.Request) {
